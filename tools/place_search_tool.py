@@ -8,7 +8,10 @@ class PlaceSearchTool:
     def __init__(self):
         load_dotenv()
         self.google_api_key = os.environ.get("GPLACES_API_KEY")
-        self.google_places_search = GooglePlaceSearchTool(self.google_api_key)
+        if self.google_api_key:
+            self.google_places_search = GooglePlaceSearchTool(self.google_api_key)
+        else:
+            self.google_places_search = None
         self.tavily_search = TavilyPlaceSearchTool()
         self.place_search_tool_list = self._setup_tools()
 
