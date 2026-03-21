@@ -1,5 +1,5 @@
-
 from utils.model_loader import ModelLoader
+from prompt_library.prompt import SYSTEM_PROMPT
 from prompt_library.prompt import SYSTEM_PROMPT
 from langgraph.graph import StateGraph, MessagesState, END, START
 from langgraph.prebuilt import ToolNode, tools_condition
@@ -46,7 +46,7 @@ class GraphBuilder():
         graph_builder.add_edge(START,"agent")
         graph_builder.add_conditional_edges("agent",tools_condition)
         graph_builder.add_edge("tools","agent")
-
+        graph_builder.add_edge("agent",END)
         self.graph = graph_builder.compile()
         return self.graph
         

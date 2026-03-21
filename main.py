@@ -2,11 +2,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from agent.agentic_workflow import GraphBuilder
 import os
+from langchain_core.messages import HumanMessage
 from dotenv import load_dotenv
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
+from config.settings import settings
+from logger.logging import logger
 
-load_dotenv()
+load_dotenv() # Handled by settings.py
 from fastapi import HTTPException
 
 graph_instance = None
@@ -15,13 +18,13 @@ graph_instance = None
 async def lifespan(app: FastAPI):
     # Load the model and build the graph on startup
     global graph_instance
-    print("Building agent graph on startup...")
+    logger.info("Building agent graph on startup...")
     try:
         graph_builder = GraphBuilder(model_provider="groq")
         graph_instance = graph_builder()
-        print("Agent graph built successfully.")
+        logger.info("Agent graph built successfully.")
     except Exception as e:
-        print(f"Failed to build agent graph: {e}")
+        logger.error(f"Failed to build agent graph: {e}", exc_info=True)
     yield
     # Clean up resources if needed on shutdown
 
@@ -42,15 +45,19 @@ async def query_travel_agent(query:QueryRequest):
     if graph_instance is None:
         raise HTTPException(status_code=503, detail="Agent is not ready. Please check backend logs.")
     try:
-        print(query)
+        logger.info(f"Received query: {query.question}")
 
-        png_graph = graph_instance.get_graph().draw_mermaid_png()
-        with open("my_graph.png", "wb") as f:
-            f.write(png_graph)
+        try:
+            png_graph = graph_instance.get_graph().draw_mermaid_png()
+            with open("my_graph.png", "wb") as f:
+                f.write(png_graph)
+                logger.info(f"Graph saved as 'my_graph.png' in {os.getcwd()}")
+        except Exception as e:
+            logger.warning(f"Could not save graph image: {e}")
 
-        print(f"Graph saved as 'my_graph.png' in {os.getcwd()}")
-        messages={"messages": [query.question]}
-        output = graph_instance.invoke(messages["messages"])
+        
+        messages={"messages": [HumanMessage(content=query.question)]}
+        output = await graph_instance.ainvoke(messages)
 
         # If result is dict with messages:
         if isinstance(output, dict) and "messages" in output:
@@ -60,4 +67,5 @@ async def query_travel_agent(query:QueryRequest):
         
         return {"answer": final_output}
     except Exception as e:
+       logger.error(f"Error processing query: {e}", exc_info=True)
        raise HTTPException(status_code=500, detail=str(e))
