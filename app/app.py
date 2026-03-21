@@ -1,9 +1,13 @@
 import streamlit as st
 import requests
 import datetime
+import sys
+import os
+
+# Add project root to path so that top-level modules (config, agent, etc.) are importable
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # from exception.exceptions import TradingBotException
-import sys
 from config.settings import settings
 
 BASE_URL = settings.BASE_URL  # Backend endpoint

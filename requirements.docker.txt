@@ -1,0 +1,24 @@
+# Core framework
+langchain
+langchain-community
+langchain-experimental
+langgraph
+
+# LLM providers
+langchain_groq
+langchain_openai
+langchain_google_community
+langchain-google-community[places]
+langchain_tavily
+
+# Web framework
+fastapi
+uvicorn
+streamlit
+
+# Utilities
+python-dotenv
+pydantic
+pydantic-settings
+httpx
+requests

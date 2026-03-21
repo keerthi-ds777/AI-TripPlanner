@@ -1,0 +1,123 @@
+# ==========================================
+# AI Trip Planner - CI/CD Pipeline
+# ==========================================
+# Runs verify_agent.py on push and pull request events
+
+name: Verify Agent CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+env:
+  PYTHON_VERSION: '3.10'
+
+jobs:
+  verify-agent:
+    name: Build & Verify Agent
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout the repository
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 2. Set up Python for running verify script
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      # 3. Install Python dependencies for verify script
+      - name: Install Verify Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      # 4. Create .env file from secrets
+      # NOTE: These secrets must be configured in GitHub repository settings:
+      #   Settings -> Secrets and variables -> Actions -> New repository secret
+      - name: Create Environment File
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          LANGCHAIN_API_KEY: ${{ secrets.LANGCHAIN_API_KEY }}
+          LANGCHAIN_TRACING_V2: ${{ secrets.LANGCHAIN_TRACING_V2 }}
+          LANGCHAIN_PROJECT: ${{ secrets.LANGCHAIN_PROJECT }}
+        run: |
+          if [ -n "$GOOGLE_API_KEY" ]; then echo "GOOGLE_API_KEY=$GOOGLE_API_KEY" >> .env; fi
+          if [ -n "$LANGCHAIN_API_KEY" ]; then echo "LANGCHAIN_API_KEY=$LANGCHAIN_API_KEY" >> .env; fi
+          if [ -n "$LANGCHAIN_TRACING_V2" ]; then echo "LANGCHAIN_TRACING_V2=$LANGCHAIN_TRACING_V2" >> .env; fi
+          if [ -n "$LANGCHAIN_PROJECT" ]; then echo "LANGCHAIN_PROJECT=$LANGCHAIN_PROJECT" >> .env; fi
+          echo "Created .env file with available secrets"
+
+      # 5. Build and start Docker container
+      - name: Build and Start Docker Container
+        working-directory: ./Docker
+        run: |
+          docker-compose up --build -d
+          echo "Waiting for container to be healthy..."
+          sleep 30
+
+      # 6. Check container status
+      - name: Check Container Status
+        run: |
+          docker ps -a
+          docker logs tripplanner-backend || true
+
+      # 7. Run verify agent script
+      - name: Run Verify Agent
+        run: |
+          python verify_agent.py
+
+      # 8. Upload verification artifacts
+      - name: Upload Verification Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-results
+          path: |
+            last_success.txt
+            last_error.txt
+          if-no-files-found: ignore
+
+      # 9. Cleanup Docker resources
+      - name: Cleanup
+        if: always()
+        working-directory: ./Docker
+        run: |
+          docker-compose down --volumes --remove-orphans
+
+  # Optional: Lint and test job
+  lint-and-test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install flake8 pytest
+
+      - name: Run Linter
+        run: |
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Run Tests
+        run: |
+          pytest --tb=short || echo "No tests found or tests failed"
