@@ -1,0 +1,31 @@
+# ==========================================
+# AI Travel Planner - Streamlit Dockerfile
+# ==========================================
+# Build from project root: docker build -f Dockerfile.streamlit -t ai-tripplanner-ui .
+
+FROM python:3.10-slim
+
+# Set working directory
+WORKDIR /app
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Copy only requirements to cache them in docker layer
+COPY app/requirements.txt ./app/requirements.txt
+
+# Install dependencies required only for the Streamlit UI
+RUN pip install --no-cache-dir -r app/requirements.txt
+
+# Copy only the necessary modules instead of the whole project
+COPY ./app ./app
+COPY ./config ./config
+
+# Expose port for Streamlit
+EXPOSE 8501
+
+# Default command: Run Streamlit frontend
+CMD ["streamlit", "run", "app/app.py", "--server.port=8501", "--server.address=0.0.0.0"]

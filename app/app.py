@@ -7,10 +7,9 @@ import os
 # Add project root to path so that top-level modules (config, agent, etc.) are importable
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# from exception.exceptions import TradingBotException
-from config.settings import settings
 
-BASE_URL = settings.BASE_URL  # Backend endpoint
+
+BASE_URL = os.environ.get("BASE_URL", "http://localhost:8000")  # Backend endpoint
 
 st.set_page_config(
     page_title="🌍 Travel Planner Agentic Application",
